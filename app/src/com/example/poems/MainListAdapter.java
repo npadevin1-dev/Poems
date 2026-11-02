@@ -10,25 +10,27 @@ import android.widget.LinearLayout;
 import android.widget.TextView;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Set;
 
 public class MainListAdapter extends BaseAdapter {
     private final Context context;
     private final List<Object> items = new ArrayList<Object>();
     private Set<String> seenKeys;
-    private final boolean searchResults;
+    private String searchQuery;
 
-    public MainListAdapter(Context context, List<Object> items, Set<String> seenKeys, boolean searchResults) {
+    public MainListAdapter(Context context, List<Object> items, Set<String> seenKeys, String searchQuery) {
         this.context = context;
         this.items.addAll(items);
         this.seenKeys = seenKeys;
-        this.searchResults = searchResults;
+        this.searchQuery = searchQuery;
     }
 
-    public void update(List<Object> newItems, Set<String> newSeenKeys) {
+    public void update(List<Object> newItems, Set<String> newSeenKeys, String newSearchQuery) {
         items.clear();
         items.addAll(newItems);
         seenKeys = newSeenKeys;
+        searchQuery = newSearchQuery;
         notifyDataSetChanged();
     }
 
@@ -128,7 +130,7 @@ public class MainListAdapter extends BaseAdapter {
         parent.addView(titleRow);
 
         TextView subtitle = new TextView(context);
-        String summary = searchResults ? searchSummary(poem) : firstLines(poem);
+        String summary = searchQuery.length() > 0 ? searchSummary(poem) : firstLines(poem);
         subtitle.setText(summary);
         subtitle.setTextColor(AppColors.SECONDARY);
         subtitle.setTextSize(13.0f);
@@ -140,11 +142,30 @@ public class MainListAdapter extends BaseAdapter {
     }
 
     private String searchSummary(Poem poem) {
-        String line = firstLine(poem);
-        if (poem.albumTitle == null || poem.albumTitle.length() == 0) {
+        String query = normalize(searchQuery);
+        String line = matchingLine(poem, query);
+        if (line == null) {
+            line = firstLine(poem);
+        }
+        String albumTitle = poem.albumTitle == null ? "" : poem.albumTitle.trim();
+        if (albumTitle.length() == 0) {
             return line;
         }
-        return line.length() == 0 ? poem.albumTitle : poem.albumTitle + " · " + line;
+        return line.length() == 0 ? albumTitle : albumTitle + " · " + line;
+    }
+
+    private String matchingLine(Poem poem, String query) {
+        for (String line : poem.lines) {
+            String trimmed = line.trim();
+            if (trimmed.length() > 0 && normalize(trimmed).contains(query)) {
+                return trimmed;
+            }
+        }
+        return null;
+    }
+
+    private String normalize(String value) {
+        return value.toLowerCase(Locale.ROOT).replace('ё', 'е');
     }
 
     private String firstLines(Poem poem) {

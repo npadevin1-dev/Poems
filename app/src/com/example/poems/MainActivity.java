@@ -89,6 +89,9 @@ public class MainActivity extends Activity {
 
         loadInitialData();
         initializeSeenPoems();
+        if (showingCachedData) {
+            initializeSeenBaselineIfNeeded();
+        }
         showMainList();
         if (isNetworkAvailable()) {
             fetchPoems(false);
@@ -156,6 +159,18 @@ public class MainActivity extends Activity {
             seen.add(PoemsParser.key(poem));
         }
         preferences.edit().putStringSet(SEEN_KEYS, seen).putBoolean("seen_initialized", true).apply();
+    }
+
+    private void initializeSeenBaselineIfNeeded() {
+        if (preferences.getBoolean("seen_net_initialized", false)) {
+            return;
+        }
+        HashSet<String> seen = getSeenKeys();
+        for (Poem poem : allPoems) {
+            seen.add(PoemsParser.key(poem));
+        }
+        preferences.edit().putStringSet(SEEN_KEYS, seen)
+                .putBoolean("seen_net_initialized", true).apply();
     }
 
     private void parseIntoCatalog(String text) throws Exception {
@@ -228,6 +243,7 @@ public class MainActivity extends Activity {
                         if (result.code == HttpURLConnection.HTTP_OK && result.body != null) {
                             try {
                                 parseIntoCatalog(result.body);
+                                initializeSeenBaselineIfNeeded();
                                 showingCachedData = true;
                                 if ("main".equals(currentScreen)) {
                                     refreshMainList();
@@ -368,7 +384,7 @@ public class MainActivity extends Activity {
         mainList.setSelector(android.R.color.transparent);
         mainList.setCacheColorHint(AppColors.BACKGROUND);
         mainList.setBackgroundColor(AppColors.BACKGROUND);
-        mainAdapter = new MainListAdapter(this, buildMainItems(), getSeenKeys(), mainQuery.length() > 0);
+        mainAdapter = new MainListAdapter(this, buildMainItems(), getSeenKeys(), mainQuery);
         mainList.setAdapter(mainAdapter);
         mainList.setOnItemClickListener(new AdapterView.OnItemClickListener() {
             @Override
@@ -420,7 +436,7 @@ public class MainActivity extends Activity {
 
     private void refreshMainList() {
         if (mainAdapter != null && mainList != null) {
-            mainAdapter.update(buildMainItems(), getSeenKeys());
+            mainAdapter.update(buildMainItems(), getSeenKeys(), mainQuery);
         }
     }
 
